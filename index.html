@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LOVE WEDDING</title>
+  <style>
+    :root{--accent:#e91e63;--accent2:#9c27b0;--bg1:#fff0f6;--bg2:#f3e5f5;--muted:#555;}
+    body{font-family:Inter,system-ui;margin:0;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#111}
+    header{background:linear-gradient(90deg,var(--accent) 0%,var(--accent2) 100%);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+    header h1{font-size:18px;margin:0;color:var(--accent)}
+    header nav button{background:var(--accent);color:#fff;border:none;padding:10px 12px;border-radius:8px;cursor:pointer;box-shadow:0 3px 6px rgba(0,0,0,.15);}
+    .container{max-width:1000px;margin:22px auto;padding:18px;background:#fff;border-radius:12px;box-shadow:0 6px 20px rgba(20,20,50,.06)}
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:18px}
+    .card{padding:14px;border-radius:14px;background:#ffffffcc;backdrop-filter:blur(6px);box-shadow:0 6px 20px rgba(0,0,0,.1);}
+    .profile-card{display:flex;gap:12px;align-items:center}
+    .avatar{width:78px;height:78px;border-radius:8px;object-fit:cover;background:#eee;border:1px solid #e6e6e6}
+    label{display:block;font-size:13px;color:var(--muted);margin-top:8px}
+    input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #e6e6e6;margin-top:6px;font-size:14px}
+    button{background:var(--accent);color:#fff;border:none;padding:10px 12px;border-radius:8px;cursor:pointer}
+    .muted{color:var(--muted);font-size:13px}
+    .list{display:flex;flex-direction:column;gap:10px}
+    .profile-item{display:flex;gap:12px;padding:10px;border-radius:10px;border:1px solid #f0f0f0;align-items:center}
+    .filters{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{padding:6px 8px;border-radius:999px;border:1px solid #eee;font-size:13px}
+    .small{font-size:13px}
+    .actions{display:flex;gap:8px}
+    footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
+    @media (max-width:880px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>LOVE WEDDING</h1>
+  <nav>
+    <button id="nav-home">Home</button>
+    <button id="nav-find">Find</button>
+    <button id="nav-my">My Profile</button>
+    <button id="nav-auth">Login / Signup</button>
+  </nav>
+</header>
+
+<main class="container">
+  <div id="app">
+    <!-- Single Page App will render here -->
+  </div>
+  <footer>Demo matrimonial site for Bengal — data stored locally in browser for prototyping.</footer>
+</main>
+
+<script>
+// Simple single-file matrimonial demo app
+// Data persisted in localStorage under key 'bm_users' and 'bm_session'
+
+// ---------- Helpers ----------
+const qs = sel => document.querySelector(sel);
+const qsa = sel => [...document.querySelectorAll(sel)];
+const uid = () => 'u_'+Math.random().toString(36).slice(2,9);
+
+function saveUsers(users){ localStorage.setItem('bm_users', JSON.stringify(users)); }
+function getUsers(){ return JSON.parse(localStorage.getItem('bm_users')||'[]'); }
+function saveSession(sess){ localStorage.setItem('bm_session', JSON.stringify(sess)); }
+function getSession(){ return JSON.parse(localStorage.getItem('bm_session')||'null'); }
+function clearSession(){ localStorage.removeItem('bm_session'); }
+
+// bootstrap with sample users if none
+if(getUsers().length===0){
+  const sample = [
+    {id:uid(), name:'Ananya Sen', gender:'Female', age:26, religion:'Hindu', district:'Kolkata', about:'Software engineer, family-oriented', photo:'', created:Date.now()},
+    {id:uid(), name:'Rajat Ghosh', gender:'Male', age:29, religion:'Hindu', district:'Howrah', about:'Sales manager who loves cricket', photo:'', created:Date.now()+1}
+  ];
+  saveUsers(sample);
+}
+
+// ---------- Router / Views ----------
+const app = qs('#app');
+function renderHome(){
+  app.innerHTML = `
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h2>Welcome to Bengal Matrimonial</h2>
+          <p class="muted">Create your profile, search matches across Bengal districts, and message directly (demo — local storage).</p>
+          <div style="margin-top:12px">
+            <button id="btn-create">Create Profile</button>
+            <button id="btn-browse" style="margin-left:8px">Browse Matches</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Featured Profiles</h3>
+          <div id="featured" class="list"></div>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card">
+          <h3>Get Started</h3>
+          <p class="small">You can register, build a profile with photo, set preferences, and then search or message matches. All data stays in your browser for this demo.</p>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h4>Quick Filters</h4>
+          <div class="filters">
+            <span class="pill">Kolkata</span>
+            <span class="pill">Howrah</span>
+            <span class="pill">Hindu</span>
+            <span class="pill">Muslim</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  `;
+  // events
+  qs('#btn-create').onclick = ()=> renderRegister();
+  qs('#btn-browse').onclick = ()=> renderFind();
+  // show featured
+  const featured = qs('#featured'); featured.innerHTML='';
+  getUsers().slice(0,6).forEach(u=>{
+    const el = document.createElement('div'); el.className='profile-item';
+    el.innerHTML = `<img src='${u.photo||placeholder(u.name)}' class='avatar'/> <div style="flex:1"><strong>${u.name}</strong><div class="muted small">${u.age} • ${u.district} • ${u.religion}</div></div> <div class='actions'><button data-id='${u.id}' class='view'>View</button></div>`;
+    featured.appendChild(el);
+  });
+  qsa('.view').forEach(b=>b.onclick = e=> renderProfile(b.dataset.id));
+}
+
+function placeholder(name){ return 'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"><rect width="100%" height="100%" fill="#eee"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#999" font-family="sans-serif" font-size="28">${name.split(' ')[0]||'User'}</text></svg>`);
+}
+
+function renderRegister(prefill){
+  const user = prefill || {name:'',age:25,gender:'Female',religion:'Hindu',district:'Kolkata',about:'',photo:''};
+  app.innerHTML = `
+    <div class="card">
+      <h2>Create / Edit Profile</h2>
+      <label>Name<input id="fld-name" value="${escapeHtml(user.name)}"></label>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1"><label>Age<input id="fld-age" type="number" value="${user.age}"></label></div>
+        <div style="flex:1"><label>Gender<select id="fld-gender"><option>Female</option><option>Male</option><option>Other</option></select></label></div>
+      </div>
+      <label>Religion<select id="fld-religion"><option>Hindu</option><option>Muslim</option><option>Christian</option><option>Other</option></select></label>
+      <label>District<input id="fld-district" value="${escapeHtml(user.district)}"></label>
+      <label>About<textarea id="fld-about">${escapeHtml(user.about)}</textarea></label>
+      <label>Photo (jpg/png) <input id="fld-photo" type="file" accept="image/*"></label>
+      <div style="margin-top:10px"><button id="save-profile">Save Profile</button> <button id="cancel">Cancel</button></div>
+    </div>
+  `;
+  qs('#fld-gender').value = user.gender;
+  qs('#fld-religion').value = user.religion;
+  qs('#save-profile').onclick = async ()=>{
+    const name = qs('#fld-name').value.trim();
+    if(!name){ alert('Name required'); return; }
+    const u = { id: uid(), name, age: Number(qs('#fld-age').value||25), gender: qs('#fld-gender').value, religion: qs('#fld-religion').value, district: qs('#fld-district').value||'Unknown', about: qs('#fld-about').value||'', photo:'' , created:Date.now() };
+    const file = qs('#fld-photo').files[0];
+    if(file){ u.photo = await toBase64(file); }
+    const users = getUsers(); users.unshift(u); saveUsers(users);
+    // auto-login
+    saveSession({userId:u.id});
+    alert('Profile saved locally — you are now logged in (demo).');
+    renderProfile(u.id);
+  };
+  qs('#cancel').onclick = ()=> renderHome();
+}
+
+function toBase64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+
+function renderFind(){
+  const users = getUsers();
+  app.innerHTML = `
+    <div>
+      <div class="card">
+        <h2>Find Matches</h2>
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <input id="q-name" placeholder="Name contains..." />
+          <select id="q-district"><option value="">Any district</option></select>
+          <select id="q-religion"><option value="">Any religion</option></select>
+          <button id="btn-search">Search</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div id="results" class="list"></div>
+      </div>
+    </div>
+  `;
+  // populate select options
+  const districts = Array.from(new Set(users.map(u=>u.district))).sort();
+  const rels = Array.from(new Set(users.map(u=>u.religion))).sort();
+  const sd = qs('#q-district'); districts.forEach(d=> sd.append(new Option(d,d)));
+  const sr = qs('#q-religion'); rels.forEach(r=> sr.append(new Option(r,r)));
+  qs('#btn-search').onclick = ()=> doSearch();
+  function doSearch(){
+    const name = qs('#q-name').value.toLowerCase(); const d = qs('#q-district').value; const r = qs('#q-religion').value;
+    let res = users.filter(u=> u.name.toLowerCase().includes(name));
+    if(d) res = res.filter(u=> u.district===d);
+    if(r) res = res.filter(u=> u.religion===r);
+    const out = qs('#results'); out.innerHTML='';
+    if(res.length===0) out.innerHTML='<div class="muted">No results</div>';
+    res.forEach(u=>{
+      const el = document.createElement('div'); el.className='profile-item';
+      el.innerHTML = `<img src='${u.photo||placeholder(u.name)}' class='avatar'/> <div style="flex:1"><strong>${u.name}</strong><div class="muted small">${u.age} • ${u.district} • ${u.religion}</div><div class='muted'>${u.about.slice(0,80)}</div></div> <div class='actions'><button data-id='${u.id}' class='view'>View</button></div>`;
+      out.appendChild(el);
+    });
+    qsa('.view').forEach(b=>b.onclick = e=> renderProfile(b.dataset.id));
+  }
+  doSearch();
+}
+
+function renderProfile(id){
+  const users = getUsers(); const u = users.find(x=>x.id===id); if(!u){ alert('Profile not found'); renderHome(); return; }
+  const session = getSession();
+  app.innerHTML = `
+    <div class="grid">
+      <div>
+        <div class="card profile-card">
+          <img src='${u.photo||placeholder(u.name)}' class='avatar'/>
+          <div>
+            <h2 style="margin:0">${u.name}</h2>
+            <div class="muted small">${u.age} • ${u.gender} • ${u.district} • ${u.religion}</div>
+            <p style="margin-top:10px">${escapeHtml(u.about)}</p>
+            <div style="margin-top:8px" class="actions">
+              <button id="btn-message">Message</button>
+              <button id="btn-like">Send Interest</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>About</h3>
+          <p class="small">This is a demo. For production, integrate server-side auth, media storage, moderation, and consent checks.</p>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card">
+          <h4>Contact & Actions</h4>
+          <div id="side-actions"></div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h4>More from ${u.district}</h4>
+          <div id="morelist" class="list"></div>
+        </div>
+      </aside>
+    </div>
+  `;
+  qs('#btn-like').onclick = ()=>{
+    if(!session){ if(confirm('You are not logged in. Create profile now?')) renderRegister(); return; }
+    const me = users.find(x=>x.id===session.userId);
+    const key = `bm_interest_${u.id}`; const arr = JSON.parse(localStorage.getItem(key)||'[]');
+    if(arr.includes(session.userId)){ alert('Interest already sent'); return; }
+    arr.push(session.userId); localStorage.setItem(key, JSON.stringify(arr)); alert('Interest sent (demo)');
+  };
+  qs('#btn-message').onclick = ()=>{
+    const sess = getSession(); if(!sess){ if(confirm('You are not logged in. Create profile now?')) renderRegister(); return; }
+    renderChat(u.id);
+  };
+  // side list
+  const more = getUsers().filter(x=> x.district===u.district && x.id!==u.id).slice(0,6);
+  const morelist = qs('#morelist'); more.forEach(m=>{ const el=document.createElement('div'); el.className='profile-item'; el.innerHTML=`<img src='${m.photo||placeholder(m.name)}' class='avatar' style='width:50px;height:50px'/> <div style='flex:1'><strong>${m.name}</strong><div class='muted small'>${m.age}</div></div> <div class='actions'><button data-id='${m.id}' class='view'>View</button></div>`; morelist.appendChild(el); });
+  qsa('.view').forEach(b=>b.onclick = e=> renderProfile(b.dataset.id));
+}
+
+function renderChat(targetId){
+  const users = getUsers(); const me = users.find(u=>u.id===getSession().userId); const other = users.find(u=>u.id===targetId);
+  if(!me || !other){ alert('Invalid user'); return; }
+  const roomKey = `bm_chat_${[me.id,targetId].sort().join('_')}`;
+  app.innerHTML = `<div class='card'><h3>Chat with ${other.name}</h3><div id='chatlog' style='min-height:200px;max-height:350px;overflow:auto;border:1px solid #f0f0f0;padding:8px;border-radius:8px;background:#fafafa'></div><div style='margin-top:8px;display:flex;gap:8px'><input id='chatmsg' placeholder='Type message...'/> <button id='sendmsg'>Send</button> <button id='back'>Back</button></div></div>`;
+  qs('#back').onclick = ()=> renderProfile(targetId);
+  function load(){ const arr = JSON.parse(localStorage.getItem(roomKey)||'[]'); const log = qs('#chatlog'); log.innerHTML=''; arr.forEach(m=>{ const el=document.createElement('div'); el.style.margin='6px 0'; el.innerHTML=`<div style='font-size:13px' class='muted'>${escapeHtml(m.fromName)} <span class='muted' style='font-size:11px'>${new Date(m.ts).toLocaleString()}</span></div><div style='padding:8px;border-radius:8px;background:${m.fromId===me.id? '#fff':'#fff'};border:1px solid #eee'>${escapeHtml(m.text)}</div>`; log.appendChild(el); }); log.scrollTop = log.scrollHeight; }
+  load();
+  qs('#sendmsg').onclick = ()=>{ const t = qs('#chatmsg').value.trim(); if(!t) return; const arr = JSON.parse(localStorage.getItem(roomKey)||'[]'); arr.push({fromId:me.id,fromName:me.name,toId:other.id,text:t,ts:Date.now()}); localStorage.setItem(roomKey, JSON.stringify(arr)); qs('#chatmsg').value=''; load(); };
+}
+
+function renderMyProfile(){ const sess = getSession(); if(!sess){ renderAuth(); return; } const users = getUsers(); const me = users.find(u=>u.id===sess.userId); if(!me){ clearSession(); renderAuth(); return; } app.innerHTML = `<div class='card'><h2>My Profile</h2><div class='profile-card'><img src='${me.photo||placeholder(me.name)}' class='avatar'/><div><strong>${me.name}</strong><div class='muted small'>${me.age} • ${me.district} • ${me.religion}</div></div></div><div style='margin-top:12px'><button id='editme'>Edit</button> <button id='logout'>Logout</button></div></div>`; qs('#editme').onclick = ()=> renderEditMe(me.id); qs('#logout').onclick = ()=>{ clearSession(); alert('Logged out'); renderHome(); } }
+
+function renderEditMe(id){ const users=getUsers(); const u=users.find(x=>x.id===id); renderRegister(u); }
+
+function renderAuth(){ app.innerHTML = `
+  <div class='grid'>
+    <div>
+      <div class='card'>
+        <h2>Login</h2>
+        <label>Email or name<input id='login-identifier' placeholder='email or name'></label>
+        <label>Password<input id='login-pass' type='password'></label>
+        <div style='margin-top:8px'><button id='btn-login'>Login</button></div>
+      </div>
+
+      <div class='card' style='margin-top:12px'>
+        <h3>Or create a new profile</h3>
+        <p class='small'>Creating a profile signs you in (demo — no password hashing).</p>
+        <div style='margin-top:8px'><button id='btn-create2'>Create profile</button></div>
+      </div>
+    </div>
+
+    <aside>
+      <div class='card'>
+        <h4>Tips</h4>
+        <ul class='small muted'><li>Use real photos for production only with consent.</li><li>Implement server-side security before public launch.</li></ul>
+      </div>
+    </aside>
+  </div>
+  `;
+  qs('#btn-create2').onclick = ()=> renderRegister();
+  qs('#btn-login').onclick = ()=>{
+    const idf = qs('#login-identifier').value.trim(); const pass = qs('#login-pass').value;
+    if(!idf){ alert('Provide name or email for demo login'); return; }
+    const users = getUsers(); const u = users.find(x=> x.name.toLowerCase()===idf.toLowerCase() || (x.email && x.email.toLowerCase()===idf.toLowerCase()));
+    if(!u){ alert('User not found — create profile'); return; }
+    saveSession({userId:u.id}); alert('Logged in (demo)'); renderMyProfile();
+  };
+}
+
+// small util
+function escapeHtml(s){ return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+// ---------- Navigation bindings ----------
+qs('#nav-home').onclick = ()=> renderHome();
+qs('#nav-find').onclick = ()=> renderFind();
+qs('#nav-my').onclick = ()=> renderMyProfile();
+qs('#nav-auth').onclick = ()=> renderAuth();
+
+// initial route
+renderHome();
+</script>
+</body>
+</html>
